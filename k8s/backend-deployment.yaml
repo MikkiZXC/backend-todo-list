@@ -29,13 +29,12 @@ spec:
               value: "todo123"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"
-            - name: SPRING_SECURITY_OAUTH2_CLIENT_ENABLED
-              value: "false"
-            - name: SPRING_SECURITY_ENABLED
+            - name: OAUTH2_SECURITY_ENABLED
               value: "false"
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /backend/manage/health
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 10
+            failureThreshold: 3
