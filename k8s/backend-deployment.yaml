@@ -18,6 +18,8 @@ spec:
           # ⚠️ Твой образ в твоём GHCR!
           image: ghcr.io/mikkizxc/todo-backend:latest
           imagePullPolicy: Always
+          imagePullSecrets:          # ← Добавь этот блок
+            - name: ghcr-secret
           ports:
             - containerPort: 8080
           env:
