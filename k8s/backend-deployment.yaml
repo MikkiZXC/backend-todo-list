@@ -31,6 +31,8 @@ spec:
               value: "update"
             - name: SPRING_SECURITY_OAUTH2_CLIENT_ENABLED
               value: "false"
+            - name: SPRING_SECURITY_ENABLED
+              value: "false"
           readinessProbe:
             httpGet:
               path: /actuator/health
