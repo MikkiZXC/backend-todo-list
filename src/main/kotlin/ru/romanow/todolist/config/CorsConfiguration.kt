@@ -13,15 +13,12 @@ class CorsConfiguration {
     fun corsFilter(): CorsFilter {
         val source = UrlBasedCorsConfigurationSource()
         val config = CorsConfiguration()
-        
         config.allowCredentials = false
         config.addAllowedOriginPattern("*")
         config.addAllowedHeader("*")
         config.addAllowedMethod("*")
-        
         source.registerCorsConfiguration("/backend/**", config)
         source.registerCorsConfiguration("/api/**", config)
-        
         return CorsFilter(source)
     }
 }
