@@ -1,0 +1,72 @@
+{{- /*
+Backend Deployment: запускает поды Spring Boot приложения
+Использует значения из .Values.backend
+*/ -}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # Генерируем имя: {{ .Release.Name }}-backend (например: todo-app-backend)
+  name: {{ include "todo-app.fullname" . }}-backend
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  # Количество реплик из values.yaml
+  replicas: {{ .Values.backend.replicaCount }}
+  
+  # Селектор: какие поды управляются этим деплойментом
+  selector:
+    matchLabels:
+      {{- include "todo-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  
+  # Шаблон пода (описание одного экземпляра)
+  template:
+    metadata:
+      labels:
+        {{- include "todo-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+     
+    spec:
+      # Политика загрузки образов (из global или дефолт)
+      
+      
+      containers:
+        - name: backend
+          # Формируем полный тег образа: repository:tag
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          # Порты, которые слушает контейнер (информативно для K8s)
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.service.targetPort }}
+              protocol: TCP
+          
+          # Проверка готовности: когда под начинает принимать трафик
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.backend.readinessProbe.path }}
+              port: {{ .Values.backend.readinessProbe.port }}
+            initialDelaySeconds: {{ .Values.backend.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.readinessProbe.periodSeconds }}
+          
+          # Проверка жизнеспособности: когда под нужно перезапустить
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.backend.readinessProbe.path }}
+              port: {{ .Values.backend.readinessProbe.port }}
+            initialDelaySeconds: {{ add .Values.backend.readinessProbe.initialDelaySeconds 30 }}
+            periodSeconds: {{ .Values.backend.readinessProbe.periodSeconds }}
+          
+          # Переменные окружения: генерируем список из map
+          env:
+            {{- range $key, $value := .Values.backend.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          
+          # Лимиты ресурсов: важно для планировщика K8s
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}

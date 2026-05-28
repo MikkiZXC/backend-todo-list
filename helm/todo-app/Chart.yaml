@@ -1,0 +1,13 @@
+apiVersion: v2
+name: todo-app
+description: Helm chart for Todo List application (Backend + Frontend + Postgres)
+type: application
+version: 1.0.0
+appVersion: "2.2"
+keywords:
+  - todo
+  - spring-boot
+  - react
+  - postgresql
+maintainers:
+  - name: mikkizxc

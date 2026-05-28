@@ -1,0 +1,60 @@
+{{- /*
+Postgres Deployment: запускает БД (только если enabled: true)
+*/ -}}
+
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "todo-app.fullname" . }}-postgres
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  replicas: 1  # БД обычно одна (для простоты; в prod — StatefulSet)
+  
+  selector:
+    matchLabels:
+      {{- include "todo-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  
+  template:
+    metadata:
+      labels:
+        {{- include "todo-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          
+          # Переменные окружения для PostgreSQL
+          env:
+            {{- range $key, $value := .Values.postgres.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          
+          # Volume для данных: emptyDir (dev) или PersistentVolumeClaim (prod)
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          
+          resources:
+            {{- toYaml .Values.postgres.resources | default .Values.backend.resources | nindent 12 }}
+      
+      volumes:
+        - name: postgres-data
+          {{- if .Values.postgres.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "todo-app.fullname" . }}-postgres-pvc
+          {{- else }}
+          emptyDir: {}  # Временное хранилище (данные пропадут при перезапуске)
+          {{- end }}
+{{- end }}

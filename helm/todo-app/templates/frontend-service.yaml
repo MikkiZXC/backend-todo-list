@@ -1,0 +1,28 @@
+{{- /*
+Frontend Service: NodePort для доступа из браузера
+*/ -}}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "todo-app.fullname" . }}-frontend
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+spec:
+  # NodePort = открывает порт на ноде для внешнего доступа
+  type: {{ .Values.frontend.service.type }}
+  
+  selector:
+    {{- include "todo-app.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.frontend.service.port }}
+      targetPort: {{ .Values.frontend.service.targetPort }}
+      # NodePort: если указан — фиксируем порт, иначе K8s выберет случайный
+      {{- if .Values.frontend.service.nodePort }}
+      nodePort: {{ .Values.frontend.service.nodePort }}
+      {{- end }}
