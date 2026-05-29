@@ -1,62 +1,43 @@
 pipeline {
-    // 1. АГЕНТ: Где выполнять пайплайн?
-    // 'any' означает: используй любого доступного агента (в нашем случае - сам мастер Jenkins внутри Docker)
     agent any
 
     environment {
-        // 2. ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ
-        // Имя релиза в Helm
         RELEASE_NAME = 'monitoring-stack'
-        // Неймспейс, куда ставим
         NAMESPACE = 'monitoring'
-        // Путь к файлу values внутри workspace
-        VALUES_FILE = 'helm/monitoring/values.yaml'
+        VALUES_FILE = 'helm/monitoring/values-monitoring.yaml'
     }
 
     stages {
-        // ЭТАП 1: ПОДГОТОВКА
-        stage('🧹 Prepare Workspace') {
-            steps {
-                script {
-                    echo "🧹 Cleaning workspace..."
-                    // Очищаем папку, чтобы не было мусора от прошлых сборок
-                    sh 'rm -rf ${WORKSPACE}/*'
-                }
-            }
-        }
-
-        // ЭТАП 2: ЗАГРУЗКА КОДА
+        // 1. Явно скачиваем код. 
+        // Jenkins уже сделал это один раз для чтения файла, 
+        // но мы делаем это явно для надежности и доступа к GIT переменным.
         stage('📥 Checkout Code') {
             steps {
-                echo "📥 Checking out code from Git..."
-                // Скачиваем код из твоего репозитория
-                // branch: 'add-k8s-manifests' — убедись, что ветка правильная!
+                echo "📥 Checking out code..."
                 checkout scm
             }
         }
 
-        // ЭТАП 3: ПРОВЕРКА ФАЙЛОВ
+        // 2. Проверяем, что файл есть. 
+        // Если его нет - ошибка сразу, не тратим время на helm.
         stage('🔍 Validate Files') {
             steps {
-                echo "🔍 Checking if values file exists..."
                 script {
-                    // Проверяем, существует ли файл values.yaml
-                    if (!fileExists(VALUES_FILE)) {
-                        error("❌ File ${VALUES_FILE} not found! Please create it.")
-                    }
-                    echo "✅ Values file found."
+                    echo "🔍 Looking for ${VALUES_FILE} in ${WORKSPACE}"
+                    // Команда ls поможет тебе увидеть, что реально лежит в папке, если файл не найдется
+                    sh "ls -R helm/" 
                     
-                    // Опционально: можно сделать helm lint, если скачаем чарт локально
-                    // Но для простоты пока пропустим
+                    if (!fileExists(VALUES_FILE)) {
+                        error("❌ File ${VALUES_FILE} is missing in Git!")
+                    }
+                    echo "✅ File found."
                 }
             }
         }
 
-        // ЭТАП 4: ДЕПЛОЙ ЧЕРЕЗ HELM
-        stage('🚀 Deploy Monitoring Stack') {
+        // 3. Деплоим
+        stage('🚀 Deploy') {
             steps {
-                echo "🚀 Starting Helm upgrade/install for ${RELEASE_NAME}..."
-                
                 sh """
                     helm upgrade --install ${RELEASE_NAME} \\
                         prometheus-community/kube-prometheus-stack \\
@@ -64,35 +45,14 @@ pipeline {
                         --create-namespace \\
                         -f ${WORKSPACE}/${VALUES_FILE} \\
                         --wait --timeout=10m \\
-                        --debug \\
                         --kube-insecure-skip-tls-verify
                 """
             }
         }
-
-        // ЭТАП 5: ПРОВЕРКА СТАТУСА
-        stage('✅ Verify Deployment') {
-            steps {
-                echo "✅ Checking pods status in ${NAMESPACE}..."
-                sh """
-                    kubectl get pods -n ${NAMESPACE} --kube-insecure-skip-tls-verify
-                    echo "🎉 Monitoring stack deployment finished!"
-                """
-            }
-        }
     }
-
-    // БЛОК POST: Выполняется всегда, независимо от успеха/неудачи
+    
     post {
-        success {
-            echo "🟢 Pipeline succeeded! Monitoring is up."
-        }
-        failure {
-            echo "🔴 Pipeline failed! Check logs above."
-        }
-        always {
-            // Можно добавить очистку, если нужно
-            echo "🏁 Pipeline execution completed."
-        }
+        success { echo "🟢 Success" }
+        failure { echo "🔴 Failed" }
     }
 }
