@@ -4,55 +4,53 @@ pipeline {
     environment {
         RELEASE_NAME = 'monitoring-stack'
         NAMESPACE = 'monitoring'
-        VALUES_FILE = 'helm/monitoring/values-monitoring.yaml'
+        VALUES_FILE = 'helm/monitoring/values-monitoring.yaml' // Проверь имя файла!
     }
 
     stages {
-        // 1. Явно скачиваем код. 
-        // Jenkins уже сделал это один раз для чтения файла, 
-        // но мы делаем это явно для надежности и доступа к GIT переменным.
         stage('📥 Checkout Code') {
             steps {
-                echo "📥 Checking out code..."
                 checkout scm
             }
         }
 
-        // 2. Проверяем, что файл есть. 
-        // Если его нет - ошибка сразу, не тратим время на helm.
-        stage('🔍 Validate Files') {
+        stage('🔧 Fix Kubeconfig for Minikube') {
             steps {
                 script {
-                    echo "🔍 Looking for ${VALUES_FILE} in ${WORKSPACE}"
-                    // Команда ls поможет тебе увидеть, что реально лежит в папке, если файл не найдется
-                    sh "ls -R helm/" 
+                    echo "🔧 Generating fresh kubeconfig from Minikube..."
+                    // Minikube сама знает, как подключиться. 
+                    // Мы сохраняем её конфиг во временную папку workspace
+                    sh 'minikube update-context' 
+                    sh 'cp ~/.kube/config ${WORKSPACE}/kubeconfig.tmp'
                     
-                    if (!fileExists(VALUES_FILE)) {
-                        error("❌ File ${VALUES_FILE} is missing in Git!")
-                    }
-                    echo "✅ File found."
+                    // Проверяем, что файл создался
+                    sh 'ls -la ${WORKSPACE}/kubeconfig.tmp'
                 }
             }
         }
 
-        // 3. Деплоим
-        stage('🚀 Deploy') {
+        stage('🚀 Deploy Monitoring Stack') {
             steps {
-                sh """
-                    helm upgrade --install ${RELEASE_NAME} \\
-                        prometheus-community/kube-prometheus-stack \\
-                        --namespace ${NAMESPACE} \\
-                        --create-namespace \\
-                        -f ${WORKSPACE}/${VALUES_FILE} \\
-                        --wait --timeout=10m \\
-                        --kube-insecure-skip-tls-verify
-                """
+                script {
+                    echo "🚀 Deploying with fixed kubeconfig..."
+                    // Используем флаг --kubeconfig, чтобы указать Helm использовать наш свежий файл
+                    sh """
+                        export KUBECONFIG=${WORKSPACE}/kubeconfig.tmp
+                        helm upgrade --install ${RELEASE_NAME} \\
+                            prometheus-community/kube-prometheus-stack \\
+                            --namespace ${NAMESPACE} \\
+                            --create-namespace \\
+                            -f ${WORKSPACE}/${VALUES_FILE} \\
+                            --wait --timeout=10m \\
+                            --kube-insecure-skip-tls-verify
+                    """
+                }
             }
         }
     }
-    
+
     post {
-        success { echo "🟢 Success" }
-        failure { echo "🔴 Failed" }
+        success { echo "🟢 Monitoring deployed!" }
+        failure { echo "🔴 Deployment failed." }
     }
 }
