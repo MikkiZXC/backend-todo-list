@@ -74,9 +74,7 @@ grafana:
     periodSeconds: 10
     failureThreshold: 3
   # Плагины для удобства
-  plugins:
-    - grafana-piechart-panel
-    - grafana-worldmap-panel
+  plugins: []
   # Датасорс Prometheus уже настроен чартом автоматически 🎉
 
 # === Node Exporter (метрики хостов) ===
