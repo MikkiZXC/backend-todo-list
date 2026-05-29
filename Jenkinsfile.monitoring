@@ -78,7 +78,7 @@ pipeline {
                             --namespace ${NAMESPACE} \\
                             --create-namespace \\
                             -f ${WORKSPACE}/${VALUES_FILE} \\
-                            --wait --timeout=10m \\
+                            --wait --timeout=3m \\
                             --kube-insecure-skip-tls-verify
                     """
                 }
