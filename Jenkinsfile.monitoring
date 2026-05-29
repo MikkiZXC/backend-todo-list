@@ -10,10 +10,31 @@ pipeline {
         MINIKUBE_HOME = '/home/ikki/.minikube' 
     }
 
+    options {
+        // Не запускать несколько сборок одновременно
+        disableConcurrentBuilds()
+    }
+
     stages {
         stage('📥 Checkout Code') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Check for Changes') {
+            steps {
+                script {
+                    // Проверяем, были ли изменения в папке helm/monitoring
+                    // Если нет - прерываем пайплайн успешно
+                    def changes = sh(script: "git diff HEAD~1 HEAD --name-only | grep 'helm/monitoring/' || true", returnStdout: true).trim()
+                    if (changes == "") {
+                        echo "⏸ No changes in monitoring folder. Skipping deployment."
+                        currentBuild.result = 'SUCCESS'
+                        return // Прерываем выполнение
+                    }
+                    echo "✅ Changes detected in monitoring folder."
+                }
             }
         }
 

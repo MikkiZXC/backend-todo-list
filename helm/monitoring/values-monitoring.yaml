@@ -50,6 +50,24 @@ grafana:
   # Дефолтные креды (смени в production!)
   adminUser: admin
   adminPassword: admin123
+
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 60  # Ждем 60 сек перед первой проверкой
+    timeoutSeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 3000
+    initialDelaySeconds: 60  # Ждем 60 сек перед первой проверкой
+    timeoutSeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
   # Плагины для удобства
   plugins:
     - grafana-piechart-panel
