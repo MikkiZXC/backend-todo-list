@@ -4,7 +4,10 @@ pipeline {
     environment {
         RELEASE_NAME = 'monitoring-stack'
         NAMESPACE = 'monitoring'
-        VALUES_FILE = 'helm/monitoring/values-monitoring.yaml' // Проверь имя файла!
+        VALUES_FILE = 'helm/monitoring/values.yaml'
+        // Путь к папке .minikube на хосте, смонтированной в контейнер
+        // Мы смонтировали её в /home/ikki/.minikube
+        MINIKUBE_HOME = '/home/ikki/.minikube' 
     }
 
     stages {
@@ -14,17 +17,27 @@ pipeline {
             }
         }
 
-        stage('🔧 Fix Kubeconfig for Minikube') {
+        stage('🔧 Get Minikube IP & Fix Kubeconfig') {
             steps {
                 script {
-                    echo "🔧 Generating fresh kubeconfig from Minikube..."
-                    // Minikube сама знает, как подключиться. 
-                    // Мы сохраняем её конфиг во временную папку workspace
-                    sh 'minikube update-context' 
-                    sh 'cp ~/.kube/config ${WORKSPACE}/kubeconfig.tmp'
+                    echo "🔧 Detecting Minikube IP..."
                     
-                    // Проверяем, что файл создался
-                    sh 'ls -la ${WORKSPACE}/kubeconfig.tmp'
+                    // 1. Получаем IP миникаба, явно указывая домашнюю папку с профилями
+                    // Флаг --bootstrapper=kubeadm стандартный, но главное указать home
+                    def minikubeIp = sh(script: "MINIKUBE_HOME=${MINIKUBE_HOME} minikube ip", returnStdout: true).trim()
+                    echo "Minikube IP is: ${minikubeIp}"
+
+                    // 2. Генерируем kubeconfig, который будет работать из этого контейнера
+                    // Мы используем minikube kubectl config view, чтобы получить правильный конфиг
+                    sh """
+                        MINIKUBE_HOME=${MINIKUBE_HOME} minikube update-context
+                        # Копируем обновленный конфиг в workspace
+                        cp ~/.kube/config ${WORKSPACE}/kubeconfig.tmp
+                        # Заменяем сервер на прямой IP, чтобы избежать проблем с DNS host.docker.internal
+                        sed -i "s|server: https://.*|server: https://${minikubeIp}:8443|g" ${WORKSPACE}/kubeconfig.tmp
+                    """
+                    
+                    echo "✅ Kubeconfig prepared at ${WORKSPACE}/kubeconfig.tmp"
                 }
             }
         }
@@ -32,8 +45,7 @@ pipeline {
         stage('🚀 Deploy Monitoring Stack') {
             steps {
                 script {
-                    echo "🚀 Deploying with fixed kubeconfig..."
-                    // Используем флаг --kubeconfig, чтобы указать Helm использовать наш свежий файл
+                    echo "🚀 Deploying Helm chart..."
                     sh """
                         export KUBECONFIG=${WORKSPACE}/kubeconfig.tmp
                         helm upgrade --install ${RELEASE_NAME} \\
@@ -50,7 +62,7 @@ pipeline {
     }
 
     post {
-        success { echo "🟢 Monitoring deployed!" }
-        failure { echo "🔴 Deployment failed." }
+        success { echo "🟢 Monitoring deployed successfully!" }
+        failure { echo "🔴 Deployment failed. Check logs." }
     }
 }
