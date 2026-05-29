@@ -4,7 +4,7 @@ pipeline {
     environment {
         RELEASE_NAME = 'monitoring-stack'
         NAMESPACE = 'monitoring'
-        VALUES_FILE = 'helm/monitoring/values.yaml'
+        VALUES_FILE = 'helm/monitoring/values-monitoring.yaml'
         // Путь к папке .minikube на хосте, смонтированной в контейнер
         // Мы смонтировали её в /home/ikki/.minikube
         MINIKUBE_HOME = '/home/ikki/.minikube' 
