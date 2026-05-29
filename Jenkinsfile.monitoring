@@ -22,22 +22,24 @@ pipeline {
                 script {
                     echo "🔧 Detecting Minikube IP..."
                     
-                    // 1. Получаем IP миникаба, явно указывая домашнюю папку с профилями
-                    // Флаг --bootstrapper=kubeadm стандартный, но главное указать home
+                    // 1. Получаем IP миникаба
                     def minikubeIp = sh(script: "MINIKUBE_HOME=${MINIKUBE_HOME} minikube ip", returnStdout: true).trim()
                     echo "Minikube IP is: ${minikubeIp}"
 
-                    // 2. Генерируем kubeconfig, который будет работать из этого контейнера
-                    // Мы используем minikube kubectl config view, чтобы получить правильный конфиг
-                    sh """
-                        MINIKUBE_HOME=${MINIKUBE_HOME} minikube update-context
-                        # Копируем обновленный конфиг в workspace
-                        cp ~/.kube/config ${WORKSPACE}/kubeconfig.tmp
-                        # Заменяем сервер на прямой IP, чтобы избежать проблем с DNS host.docker.internal
-                        sed -i "s|server: https://.*|server: https://${minikubeIp}:8443|g" ${WORKSPACE}/kubeconfig.tmp
-                    """
+                    // 2. Генерируем НОВЫЙ kubeconfig прямо в workspace (там можно писать)
+                    // Мы используем команду config view, которая просто выводит текущий конфиг
+                    // Но чтобы получить правильный контекст для этого IP, лучше использовать export
                     
-                    echo "✅ Kubeconfig prepared at ${WORKSPACE}/kubeconfig.tmp"
+                    sh """
+                        # Создаем временный конфиг на основе текущего профиля
+                        MINIKUBE_HOME=${MINIKUBE_HOME} minikube kubectl -- config view --raw > ${WORKSPACE}/kubeconfig.tmp
+                        
+                        # Заменяем сервер на прямой IP (порт 8443 стандартен для docker-driver)
+                        sed -i "s|server: https://.*|server: https://${minikubeIp}:8443|g" ${WORKSPACE}/kubeconfig.tmp
+                        
+                        echo "✅ Kubeconfig generated at ${WORKSPACE}/kubeconfig.tmp"
+                        cat ${WORKSPACE}/kubeconfig.tmp | grep server
+                    """
                 }
             }
         }
