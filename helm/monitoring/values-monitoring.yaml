@@ -51,6 +51,11 @@ grafana:
   adminUser: admin
   adminPassword: admin123
 
+  env:
+    # Отключаем проверку SSL при установке плагинов
+    GF_PLUGIN_ADMIN_ENABLED: "true"
+    GF_INSTALL_PLUGINS_SKIP_TLS_VERIFY: "true" 
+
   livenessProbe:
     httpGet:
       path: /api/health
