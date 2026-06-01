@@ -17,30 +17,7 @@ prometheus:
         memory: 2Gi
         cpu: 1000m
     # Добавляем наш todo-app в скрейпинг
-    additionalScrapeConfigs:
-      - job_name: 'todo-app-backend'
-        kubernetes_sd_configs:
-          - role: pod
-            namespaces:
-              names:
-                - todo-app
-        relabel_configs:
-          # Скрейпим только поды с меткой component=backend
-          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
-            action: keep
-            regex: backend
-          # Порт для метрик (Spring Actuator)
-          - source_labels: [__meta_kubernetes_pod_container_port_number]
-            action: keep
-            regex: 8080
-          # Путь к метрикам
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          # Итоговый URL: http://<pod-ip>:8080/actuator/prometheus
-        metrics_path: /actuator/prometheus
-        scrape_interval: 30s
+    
 
 # === Grafana ===
 grafana:

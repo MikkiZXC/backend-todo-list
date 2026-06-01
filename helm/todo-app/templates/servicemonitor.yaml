@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: todo-app-backend-monitor
+  namespace: todo-app
+  labels:
+    release: monitoring-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: todo-app
+  namespaceSelector:
+    matchNames:
+      - todo-app
+  endpoints:
+    - port: http
+      path: /backend/manage/prometheus
+      interval: 30s
